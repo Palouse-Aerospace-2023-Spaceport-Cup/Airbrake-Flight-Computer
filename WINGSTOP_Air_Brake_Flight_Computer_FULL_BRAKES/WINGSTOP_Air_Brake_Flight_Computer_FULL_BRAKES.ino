@@ -107,7 +107,7 @@ READ ME
 // *********SET FREQUENCY HERE IN HZ***************
   #define hz (10)//hz
 
-// *********SET GRAVITY CONSTANT HERE***************
+// *********GRAVITY CONSTANT***************
   #define G (9.81)// m/(s^2)
 
 // *********SET TAKEOFF ALTITUDE HERE***************
