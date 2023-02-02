@@ -23,6 +23,9 @@ READ ME
   Maximum Braking Velocity:
     Under variables, define max_brake_velocity to the maximum speed that the brakes are allowed to be deployed in meters per second.
 
+  P-gain:
+    Under predict_apo function, adjust the P_gain equation to tune the P controller. Use previous flight data, or theoretical data if no previous flights. 
+
 
 
   MODE INDICATORS:
@@ -82,7 +85,7 @@ READ ME
   float brake_position = 0; //position to set brakes to (0 for closed, 100 for open full)
 
   //PID values:
-  float P_gain = 1; //gain value for p controller
+  float P_gain = 2; //gain value for p controller
   
   
   unsigned long t_previous = 0;  //previous clock time in milliseconds
@@ -530,6 +533,9 @@ void predict_apogee(){//predicts apogee with current velocity, altitude, and acc
   }
 
   if (vel < max_brake_velocity){//enters if velocity is under max brake velocity
+    //P term equation:
+    P_gain = 16118 / sq(vel);
+    
     //P controller algorithm:
     brake_position = brake_position + P_gain * (acc - target_acc);
 
