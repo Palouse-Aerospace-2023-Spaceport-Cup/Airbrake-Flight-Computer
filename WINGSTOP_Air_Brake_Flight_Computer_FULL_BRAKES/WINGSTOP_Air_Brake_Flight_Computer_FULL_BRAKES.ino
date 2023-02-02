@@ -330,9 +330,7 @@ void loop() {
 //DESCENDING MODE********************
 
   close_brakes();//fully closes brakes
-  if (logFile) {
-    logFile.print(F(" CLOSE BRAKE"));
-  }
+  brake_position = 0;
   
   while(! detect_touchdown()){//Runs until touchdown is detected
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
