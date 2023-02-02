@@ -20,6 +20,9 @@ READ ME
   Acceleration Offset constant setup:
     Under variables, adjust "OFFSET" variable accoring to previous flight data to obtain the most accurate apogee projection.
 
+  Maximum Braking Velocity:
+    Under variables, define max_brake_velocity to the maximum speed that the brakes are allowed to be deployed in meters per second.
+
 
 
   MODE INDICATORS:
