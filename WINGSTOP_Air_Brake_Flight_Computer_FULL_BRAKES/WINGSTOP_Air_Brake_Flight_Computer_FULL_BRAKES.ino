@@ -67,13 +67,29 @@ READ ME
 
 //VARIABLES
 
-  int c = 0; //COUNTER
-  float x1 = 0, x2 = 0, vel = 0, acc = 0, acc_avg = 0, apo = 0, apo_act = 0, init_pressure = 0, init_altitude = 0, delta_t = 0; //DATA VARIABLES (decimal)
-  unsigned long t1 = 0, t2 = 0; //TIMER VARIABLES (integers)
+  int counter_mco = 0; //COUNTER for Main Engine Cutoff detection
+  int counter_apogee = 0; //COUNTER for Apogee detection
+  int counter_landed = 0; //COUNTER for Landed Detection
   
-  //brakes servo RANGE
+  float x_previous = 0; // previous position
+  float x_current = 0; //current position
+  float vel = 0; //velocity
+  float acc = 0; //acceleration
+  float acc_avg = 0; //acceleration variable for averaging data
+  float apo = 0; //predicted apogee
+  float init_pressure = 0; //ground pressure reading in HPa
+  float init_altitude = 0; //ground altitude reading in meters
+  float delta_t = 0; //time between iterations in milliseconds
+  float target_acc = 0; //acceleration needed to hit target altitude
+  float distance_to_target = 0; //distance to target apogee
+  
+  unsigned long t_previous = 0;  //previous clock time in milliseconds
+  unsigned long t_current = 0;  //current clock time in milliseconds
+  
+  //brakes servo RANGE and Velocity Limit
   #define brakes_closed  625
   #define brakes_open  1580
+  #define max_brake_velocity 500 //must be under this velocity in [m/s] to deploy brakes
   
   //DEFINE PIN NUMBERS
   #define BUZZER_PIN  15
@@ -81,7 +97,7 @@ READ ME
   #define SERVO_PIN  3
   
 //**************SET TARGET ALTITUDE HERE*************************
-  float target_altitude = 100; //target altitude above ground in meters
+  #define target_altitude (100) //target altitude above ground in meters
 
 // *********SET SEA LEVEL PRESSURE HERE***************
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
@@ -120,7 +136,6 @@ void setup() {
 
   //BUZZER setup:
   pinMode(BUZZER_PIN, OUTPUT);
-  beep_buzz(1);//beep and buzz 
   
 
   //Servo setup************************************************
@@ -141,6 +156,7 @@ void setup() {
   open_brakes();
   delay(500);
   */
+  
   close_brakes();
   
   
@@ -162,6 +178,16 @@ void setup() {
   //FILE Setup***************************************************
 
   open_file(); //File for writing
+    if (myFile) {
+    //file opened ok
+  } else {
+    // if the file didn't open, turn on buzzer/LED to indicate file problem
+    turn_on_led(); //Turn on LED
+    turn_on_buzzer(); //Turn on buzzer
+    while(1){ 
+      //run while loop forever
+    }
+  }
   set_header_file(); //sets headers at beginning of file
 
 
@@ -205,14 +231,14 @@ for(int i = 1; i<10; i++){ //calibrates initial pressure and starting altitude t
   // COMMENT this section to use all sea level data, not ground reference data. Must uncomment second section. 
   init_pressure = bmp.pressure/100;
   init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  x1 = read_altitude();
+  x_previous = read_altitude();
   //*///END SECTION 1 
 }
   /* SECTION 2
   // UNCOMMENT this section to use all sea level data. Target altitude will be updated using initial altitude reading and target above ground. Must comment first section. 
   init_pressure = SEALEVELPRESSURE_HPA;
   init_altitude = read_altitude();
-  x1 = init_altitude;
+  x_previous = init_altitude;
   target_altitude += init_altitude;
   *///END SECTION 2 
 
@@ -220,8 +246,8 @@ for(int i = 1; i<10; i++){ //calibrates initial pressure and starting altitude t
   //print initial sea level altitude to file
   myFile.print(init_altitude);
 
-  //sets initial time, t1
-  t1 = millis();
+  //sets initial time, t_previous
+  t_previous = millis();
   
   //LED light On Solid to show ARMED. Turns off when motor ignition detected. 
   turn_on_led(); //Turn on LED
@@ -242,17 +268,9 @@ void loop() {
 //STANDBY MODE********************
   while(vel < 4){//Waiting for launch. Exits if velocity is greater than 4 m/s.
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
-    read_velocity();//reads new altitude as x2 and compares to previous altitude x1 and delta_t to determine velocity, the updates x1 as x2
-    if(c % (5*hz) == 0){//turns on buzzer every 5 seconds
-      turn_on_buzzer();
-    }
-    if((c - (hz/4)) % (5*hz) == 0){//turns off buzzer after 1/4 of a second
-      turn_off_buzzer();
-    }
-    c++;//increment counter for buzzer
+    read_velocity();//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity, the updates x_previous as x_current
   }
 
-  c = 0; //reset counter for MCO detection
   turn_off_led();
   turn_off_buzzer();
   log_data();//logs all data to sd card
@@ -262,7 +280,7 @@ void loop() {
 //MOTOR BURNING MODE********************
   while(! MCO()){//runs until MCO is detected
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
-    read_velocity();//reads new altitude as x2 and compares to previous altitude x1 and delta_t to determine velocity, then updates x1 as x2
+    read_velocity();//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity, then updates x_previous as x_current
     log_data();//logs all data to sd card
   }
   
@@ -271,16 +289,16 @@ void loop() {
 
 
 
+
 //ASCENDING MODE********************
 
-
-  open_brakes();//apply full brake
+  open_brakes();//apply full brakes
   myFile.print(F(" FULL BRAKE"));
 
   
   while(! detect_apogee()){//Runs until apogee is detected.
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
-    read_velocity();//reads new altitude as x2 and compares to previous altitude x1 and delta_t to determine velocity, then updates x1 as x2
+    read_velocity();//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity, then updates x_previous as x_current
   
     if(vel>0 && acc < 0){// enters if traveling up and decelerating 
       predict_apogee();//predicts apogee
@@ -293,17 +311,17 @@ void loop() {
 
 
 
+
+
 //DESCENDING MODE********************
 
-
-
-  close_brakes();//apply full brake
+  close_brakes();//fully closes brakes
   myFile.print(F(" CLOSE BRAKE"));
 
   
   while(! detect_touchdown()){//Runs until touchdown is detected
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
-    read_velocity();//reads new altitude as x2 and compares to previous altitude x1 and delta_t to determine velocity, then updates x1 as x2
+    read_velocity();//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity, then updates x_previous as x_current
     log_data();//logs all data to sd card
   }
   myFile.println(F("Landing Detected"));
@@ -314,9 +332,13 @@ void loop() {
   close_file(); //closes the file
   recovery_beeps(); //enters recovery mode
 
-
-
 }//end of main program
+
+
+
+
+
+
 
 
 
@@ -399,25 +421,13 @@ void set_brakes(float pos){//set brakes to any position between 0 and 1 (0 = clo
 
 void open_file(){// opens the file for writing
   myFile = SD.open("flight.txt", FILE_WRITE);
-
-  
-  if (myFile) {
-    //file opened ok
-  } else {
-    // if the file didn't open, turn on buzzer/LED to indicate file problem
-    turn_on_led(); //Turn on LED
-    turn_on_buzzer(); //Turn on buzzer
-    while(1){ 
-      //run while loop forever
-    }
-  }
 }
 
 void set_header_file(){//sets headers at begining of file
   myFile.print(F("Flight Log:\t"));
   myFile.print(hz);
   myFile.println(F("hz"));
-  myFile.print(F("Time:\tAlt:\tVel:\tAcc:\tApo:\tApo_Act:\tEvents:\t"));
+  myFile.print(F("Time:\tAlt:\tVel:\tAcc:\tApo:\tEvents:\t"));
 }
 
 void close_file(){
@@ -431,12 +441,11 @@ void reopen_file(){//closes then reopens the file, saving data up to this point
 
 void log_data(){//saves current data to sd card
   myFile.print("\n");
-  myFile.print(t2); myFile.print(F("\t"));       //logs current time
-  myFile.print(x2); myFile.print(F("\t"));       //logs current position
+  myFile.print(t_current); myFile.print(F("\t"));       //logs current time
+  myFile.print(x_current); myFile.print(F("\t"));       //logs current position
   myFile.print(vel); myFile.print(F("\t"));      //logs current velocity
   myFile.print(acc); myFile.print(F("\t"));      //logs current acceleration
   myFile.print(apo); myFile.print(F("\t"));      //logs current apogee projection
-  myFile.print(apo_act); myFile.print(F("\t"));;  //logs apogee
 }
 
 
@@ -453,44 +462,46 @@ void read_accelerometer(){//reads and updates z_global variable
   acc = 9.81 *  -(1+mpu.getAccX()*sin(mpu.getAngleY()*3.14/180)-mpu.getAccY()*cos(mpu.getAngleY()*3.14/180)*sin(mpu.getAngleX()*3.14/180)-mpu.getAccZ()*cos(mpu.getAngleY()*3.14/180)*cos(mpu.getAngleX()*3.14/180));// uses a transformation matrix to determine global z acceleration
 }
 
-void average_acceleration_data(){//averages acceleration data over the set frequency and saves to z_global variable. Also updates t2 time variable.
+void average_acceleration_data(){//averages acceleration data over the set frequency and saves to z_global variable. Also updates t_current time variable.
   int i = 0; //iteration counting variable
   acc_avg = 0; // resets z_avg variable to 0
   
   do{ //run at least once
-    t2 = millis();        // updates t2 variable with current time
+    t_current = millis();        // updates t_current variable with current time
     read_accelerometer(); //updates z_global variable
     acc_avg += acc;    //adds all the acceleration readings for each iteration
     i++;                  //counts the number of iterations
-  }while(t2-t1 < 1000/hz-1);//exits loop once elapsed time is greater than frequency time period
+  }while(t_current-t_previous < 1000/hz-1);//exits loop once elapsed time is greater than frequency time period
 
   acc = acc_avg/i;     //averages the z acceleration data for the period
-  delta_t = t2-t1;        //update change in time variable
-  t1 = t2;                //updates the t1 point for when the loop ended
+  delta_t = t_current-t_previous;        //update change in time variable
+  t_previous = t_current;                //updates the t_previous point for when the loop ended
+  
+  //print acc value
+  Serial.println(acc);
 }
 
 
 //***********PHYSICS FUNCTIONS***********
 
-void read_velocity(){//reads new altitude as x2 and compares to previous altitude x1 and delta_t to determine velocity
-  x2 = read_altitude(); //gets current altitude
-  vel = (x2 - x1)/(delta_t / 1000); //determines velocity
-  x1 = x2; //update previous altitude variable
+void read_velocity(){//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity
+  x_current = read_altitude(); //gets current altitude
+  vel = (x_current - x_previous)/(delta_t / 1000); //determines velocity
+  x_previous = x_current; //update previous altitude variable
 }
 
 void predict_apogee(){//predicts apogee with current velocity, altitude, and acceleration
-  apo = - sq(vel)/(2*(acc - G)) * log((sq(vel) + sq(vel) * (-G)/(acc - G))/(sq(vel)*(-G)/(acc -G))) + x2;
+  apo = - sq(vel)/(2*(acc - G)) * log((sq(vel) + sq(vel) * (-G)/(acc - G))/(sq(vel)*(-G)/(acc -G))) + x_current;
 }
 
 int MCO(){//returns 1 if MCO is detected, 0 otherwise.
   if(acc < 0){//enters if acceleration is less than 0
-    c++;      //increments counter
+    counter_mco++;      //increments counter
   }
   else{
-    c = 0;      //resets counter if positive acceleration
+    counter_mco = 0;      //resets counter if positive acceleration
   }
-  if(c > 3){    //enters if last 3 acceleration datas are less than 0 
-    c = 0;      //resets counter for apogee detection
+  if(counter_mco > 3){    //enters if last 3 acceleration datas are less than 0 
     return 1;   //returns 1 for MCO detected
   }
   else{           
@@ -498,16 +509,15 @@ int MCO(){//returns 1 if MCO is detected, 0 otherwise.
   }
 }
 
+
 int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
-  if(x2 > apo_act){//enters if current position is higher than saved apogee value
-    apo_act = x2; //saves new apogee value
-    c = 0;      //resets apogee counter
+  if(x_current > x_previous){//enters if current position is higher than saved apogee value
+    counter_apogee = 0;      //resets apogee counter
   }
   else{
-    c++;        //increments apogee counter if latest value is less than recorded apogee
+    counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
   }
-  if(c > 3){    //enters if last 3 positions are lower than recorded apogee
-    c = 0;      //resets counter for touchdown
+  if(counter_apogee > 3){    //enters if last 3 positions are lower than recorded apogee
     return 1;   //returns 1 for apogee detected
   }
   else{           
@@ -518,13 +528,13 @@ int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
 
 int detect_touchdown(){//returns 1 if touchdown is detected, otherwise returns 0.
   if (vel < 1 && vel > -1){ //enters if velocity is almost 0
-    c++;    //increments counter
+    counter_landed++;    //increments counter
   }
   else{
-    c = 0;  //resets counter
+    counter_landed = 0;  //resets counter
   }
-  if(c > 5){  //enters if counted 5 velocities in a row close to 0
-    c = 0;    //resets counter
+  if(counter_landed > 5){  //enters if counted 5 velocities in a row close to 0
+    counter_landed = 0;    //resets counter
     return 1; //returns 1 if touchdown detected
   }
   else{
