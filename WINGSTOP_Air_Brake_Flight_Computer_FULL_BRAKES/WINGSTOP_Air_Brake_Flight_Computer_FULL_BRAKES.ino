@@ -526,17 +526,19 @@ void predict_apogee(){//predicts apogee with current velocity, altitude, and acc
     target_acc = -100; //max deceleration because target is passed
   }
 
-  //P controller algorithm:
-  brake_position = brake_position + P_gain * (acc - target_acc);
+  if (vel < max_brake_velocity){//enters if velocity is under max brake velocity
+    //P controller algorithm:
+    brake_position = brake_position + P_gain * (acc - target_acc);
 
-  //don't let brake position satturate:
-  if(brake_position > 100){
-    brake_position = 100;
-  } else if(brake_position < 0){
-    brake_position = 0;
-  }
+    //don't let brake position satturate:
+    if(brake_position > 100){
+      brake_position = 100;
+    } else if(brake_position < 0){
+      brake_position = 0;
+    }
   
-  set_brakes();// updates brakes to brake position variable
+    set_brakes();// updates brakes to brake position variable
+  } 
 }
 
 
