@@ -316,17 +316,13 @@ void loop() {
 
 
 //ASCENDING MODE********************
-
-  open_brakes();//apply full brakes
-  logFile.print(F(" FULL BRAKE"));
-
   
   while(! detect_apogee()){//Runs until apogee is detected.
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
     read_velocity();//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity, then updates x_previous as x_current
   
     if(vel>0 && acc < 0){// enters if traveling up and decelerating 
-      predict_apogee();//predicts apogee
+      predict_apogee();//predicts apogee and sets brakes
     }
     
     log_data();//logs all data to sd card
@@ -357,7 +353,9 @@ void loop() {
 
 
 //RECOVERY MODE********************
-  close_file(); //closes the file
+  if (logFile) {
+    close_file(); //closes the file
+  }
   recovery_beeps(); //enters recovery mode
 
 }//end of main program
@@ -455,10 +453,17 @@ void open_file(){// opens the file for writing
 }
 
 void set_header_file(){//sets headers at begining of file
-  logFile.print(F("Flight Log:\t"));
-  logFile.print(hz);
-  logFile.println(F("hz"));
-  logFile.print(F("Time:\tAlt:\tVel:\tAcc:\tApo:\tEvents:\t"));
+  logFile.print(F("Flight Log:\t\t"));
+  logFile.print(F("hz:\t"));
+  logFile.print(hz); logFile.print(F(" [hz]\t")); 
+  logFile.print(F("Initial Altitude:\t"));
+  logFile.print(init_altitude); logFile.print(F(" [m]\t")); 
+  logFile.print(F("TAKEOFF_ALTITUDE:\t"));
+  logFile.print(TAKEOFF_ALTITUDE); logFile.print(F(" [m]\t")); 
+  logFile.print(F("TARGET_ALTITUDE:\t"));
+  logFile.print(TARGET_ALTITUDE); logFile.print(F(" [m]\t")); 
+  
+  logFile.print(F("Time:\tAlt:\tVel:\tAcceleration:\tTarget_Acceleration:\tBrake_Position:\tEvents:\t"));
 }
 
 void close_file(){
@@ -532,16 +537,18 @@ void predict_apogee(){//predicts apogee with current velocity, altitude, and acc
   } else {
     target_acc = -100; //max deceleration because target is passed
   }
-  
+
+  //P controller algorithm:
   brake_position = brake_position + P_gain * (acc - target_acc);
 
+  //don't let brake position satturate:
   if(brake_position > 100){
     brake_position = 100;
   } else if(brake_position < 0){
     brake_position = 0;
   }
   
-  set_brakes();
+  set_brakes();// updates brakes to brake position variable
 }
 
 
