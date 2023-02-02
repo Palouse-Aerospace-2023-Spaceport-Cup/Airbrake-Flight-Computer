@@ -99,7 +99,7 @@ READ ME
 
   
 //**************SET TARGET ALTITUDE HERE*************************
-  #define TARGET_ALTITUDE (0) //target altitude above ground in meters
+  #define TARGET_ALTITUDE (1) //target altitude above ground in meters
 
 // *********SET SEA LEVEL PRESSURE HERE***************
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
@@ -452,7 +452,7 @@ void set_header_file(){//sets headers at begining of file
   logFile.print(F("TAKEOFF_ALTITUDE:\t"));
   logFile.print(TAKEOFF_ALTITUDE); logFile.print(F(" [m]\t")); 
   logFile.print(F("TARGET_ALTITUDE:\t"));
-  logFile.print(TARGET_ALTITUDE); logFile.println(F(" [m]\t")); 
+  logFile.print(TARGET_ALTITUDE); logFile.println(F("\t[m]\t")); 
   logFile.print(F("Time:\tAlt:\tVel:\tAcceleration:\tTarget_Acceleration:\tBrake_Position:\tEvents:\t"));
 }
 
