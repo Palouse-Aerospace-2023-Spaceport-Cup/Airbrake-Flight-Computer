@@ -70,19 +70,23 @@ READ ME
   int counter_mco = 0; //COUNTER for Main Engine Cutoff detection
   int counter_apogee = 0; //COUNTER for Apogee detection
   int counter_landed = 0; //COUNTER for Landed Detection
-  int TAKEOFF_ALTITUDE = 30; //altitude above the ground in meters that triggers the detect_take_off function
   
   float x_previous = 0; // previous position
   float x_current = 0; //current position
   float vel = 0; //velocity
   float acc = 0; //acceleration
   float acc_avg = 0; //acceleration variable for averaging data
-  float apo = 0; //predicted apogee
+  //float apo = 0; //predicted apogee
   float init_pressure = 0; //ground pressure reading in HPa
   float init_altitude = 0; //ground altitude reading in meters
   float delta_t = 0; //time between iterations in milliseconds
   float target_acc = 0; //acceleration needed to hit target altitude
   float distance_to_target = 0; //distance to target apogee
+  float brake_position = 0; //position to set brakes to (0 for closed, 100 for open full)
+
+  //PID values:
+  float P_gain = 1; //gain value for p controller
+  
   
   unsigned long t_previous = 0;  //previous clock time in milliseconds
   unsigned long t_current = 0;  //current clock time in milliseconds
@@ -96,6 +100,9 @@ READ ME
   #define BUZZER_PIN  15
   #define LED_PIN  5
   #define SERVO_PIN  3
+
+
+
   
 //**************SET TARGET ALTITUDE HERE*************************
   #define TARGET_ALTITUDE (100) //target altitude above ground in meters
@@ -109,8 +116,14 @@ READ ME
 // *********SET GRAVITY CONSTANT HERE***************
   #define G (9.81)// m/(s^2)
 
+// *********SET TAKEOFF ALTITUDE HERE***************
+  #define TAKEOFF_ALTITUDE  (30) //altitude above the ground in meters that triggers the detect_take_off function
+
 // *********SET ACCELERATION OFFSET CONSTANT HERE***************
   #define OFFSET (-7)// offset for acceleration data in m/(s^2) for prediction algorithm
+
+
+
 
 //Brakes Servo Handle
   Servo brakes; 
@@ -423,15 +436,15 @@ float read_altitude(){//reads and returns barometer altitude reading
 //***********BRAKE FUNCTIONS***********
 
 void open_brakes(){//opens brakes fully
-  brakes.write(brakes_open);//600 to 1580 for full range
+  brakes.write(brakes_open);
 }
 
 void close_brakes(){//opens brakes fully
-  brakes.write(brakes_closed);//600 to 1580 for full range
+  brakes.write(brakes_closed);
 }
 
-void set_brakes(float pos){//set brakes to any position between 0 and 1 (0 = closed, 1 = open) 
-  brakes.write((int)(pos*(brakes_open - brakes_closed) + brakes_closed));//600 to 1580 for full range
+void set_brakes(){//set brakes to desired brake position between 0 and 100 (0 = closed, 100 = open) 
+  brakes.write((int)((brake_position/100)*(brakes_open - brakes_closed) + brakes_closed));
 }
 
 
@@ -466,7 +479,8 @@ void log_data(){//saves current data to sd card
     logFile.print(x_current); logFile.print(F("\t"));       //logs current position
     logFile.print(vel); logFile.print(F("\t"));      //logs current velocity
     logFile.print(acc); logFile.print(F("\t"));      //logs current acceleration
-    logFile.print(apo); logFile.print(F("\t"));      //logs current apogee projection
+    logFile.print(target_acc); logFile.print(F("\t"));      //logs larget acceleration apogee projection
+    logFile.print(brake_position); logFile.print(F("\t"));      //logs larget acceleration apogee projection
   }
 }
 
@@ -498,9 +512,6 @@ void average_acceleration_data(){//averages acceleration data over the set frequ
   acc = acc_avg/i;     //averages the z acceleration data for the period
   delta_t = t_current-t_previous;        //update change in time variable
   t_previous = t_current;                //updates the t_previous point for when the loop ended
-  
-  //print acc value
-  Serial.println(acc);
 }
 
 
@@ -513,14 +524,24 @@ void read_velocity(){//reads new altitude as x_current and compares to previous 
   distance_to_target = TARGET_ALTITUDE - x_current; //update distance to target. Negative value implies target has been passed.
 }
 
-void predict_apogee(){//predicts apogee with current velocity, altitude, and acceleration
-  apo = - sq(vel)/(2*(acc + OFFSET + G)) * log(- (acc + OFFSET) / G) + x_current;
+void predict_apogee(){//predicts apogee with current velocity, altitude, and acceleration and sets brakes to reach target altitude
+  //apo = - sq(vel)/(2*(acc + OFFSET + G)) * log(- (acc + OFFSET) / G) + x_current;
 
   if (distance_to_target > 0) {//updates target acceleration if target is not reached
     target_acc = (sq(vel) * lambertW(- (2 * distance_to_target * G * exp(- (2 * distance_to_target * G)/sq(vel) ) )/sq(vel)) - 2 * distance_to_target * OFFSET)/(2 * distance_to_target);
   } else {
     target_acc = -100; //max deceleration because target is passed
   }
+  
+  brake_position = brake_position + P_gain * (acc - target_acc);
+
+  if(brake_position > 100){
+    brake_position = 100;
+  } else if(brake_position < 0){
+    brake_position = 0;
+  }
+  
+  set_brakes();
 }
 
 
