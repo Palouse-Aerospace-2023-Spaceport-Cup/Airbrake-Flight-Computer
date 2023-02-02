@@ -18,7 +18,7 @@ READ ME
     under barometer setup code, uncomment section 1 and comment section 2 for ground reference data. Uncomment section 2 and comment section 1 for ground reference data. 
 
   Target altitude setup:
-    Under variables, change "target_altitude" variable to the desired target altitude ABOVE THE GROUND.
+    Under variables, change "TARGET_ALTITUDE" variable to the desired target altitude ABOVE THE GROUND.
 
   Gravity constant setup:
     Under variables, adjust "G" variable to accoring to previous flight data to obtain the most accurate apogee projection.
@@ -98,7 +98,7 @@ READ ME
   #define SERVO_PIN  3
   
 //**************SET TARGET ALTITUDE HERE*************************
-  #define target_altitude (100) //target altitude above ground in meters
+  #define TARGET_ALTITUDE (100) //target altitude above ground in meters
 
 // *********SET SEA LEVEL PRESSURE HERE***************
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
@@ -107,7 +107,10 @@ READ ME
   #define hz (5)//hz
 
 // *********SET GRAVITY CONSTANT HERE***************
-  #define G (6.3)// m/(s^2)
+  #define G (9.81)// m/(s^2)
+
+// *********SET ACCELERATION OFFSET CONSTANT HERE***************
+  #define OFFSET (-7)// offset for acceleration data in m/(s^2) for prediction algorithm
 
 //Brakes Servo Handle
   Servo brakes; 
@@ -507,10 +510,17 @@ void read_velocity(){//reads new altitude as x_current and compares to previous 
   x_current = read_altitude(); //gets current altitude
   vel = (x_current - x_previous)/(delta_t / 1000); //determines velocity
   x_previous = x_current; //update previous altitude variable
+  distance_to_target = TARGET_ALTITUDE - x_current; //update distance to target. Negative value implies target has been passed.
 }
 
 void predict_apogee(){//predicts apogee with current velocity, altitude, and acceleration
-  apo = - sq(vel)/(2*(acc - G)) * log((sq(vel) + sq(vel) * (-G)/(acc - G))/(sq(vel)*(-G)/(acc -G))) + x_current;
+  apo = - sq(vel)/(2*(acc + OFFSET + G)) * log(- (acc + OFFSET) / G) + x_current;
+
+  if (distance_to_target > 0) {//updates target acceleration if target is not reached
+    target_acc = (sq(vel) * lambertW(- (2 * distance_to_target * G * exp(- (2 * distance_to_target * G)/sq(vel) ) )/sq(vel)) - 2 * distance_to_target * OFFSET)/(2 * distance_to_target);
+  } else {
+    target_acc = -100; //max deceleration because target is passed
+  }
 }
 
 
