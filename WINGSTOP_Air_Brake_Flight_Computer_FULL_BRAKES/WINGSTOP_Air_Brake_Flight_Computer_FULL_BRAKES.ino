@@ -13,25 +13,19 @@ READ ME
   Set Current Location and Time Sea Level Pressure:
     Get current sea level pressure from: https://weather.us/observations/pressure-qnh.html
     Save under variables, Defined Constant "SEALEVELPRESSURE_HPA" 
-  
-  Sea Level vs ground reference setup:
-    under barometer setup code, uncomment section 1 and comment section 2 for ground reference data. Uncomment section 2 and comment section 1 for ground reference data. 
 
   Target altitude setup:
     Under variables, change "TARGET_ALTITUDE" variable to the desired target altitude ABOVE THE GROUND.
 
-  Gravity constant setup:
-    Under variables, adjust "G" variable to accoring to previous flight data to obtain the most accurate apogee projection.
+  Acceleration Offset constant setup:
+    Under variables, adjust "OFFSET" variable accoring to previous flight data to obtain the most accurate apogee projection.
 
 
 
   MODE INDICATORS:
   
   ON POWER UP
-  -LED blinks and buzzer beeps 3 times
-  
-  ARMED AND READY TO LAUNCH
-  -Solid LED and Slow Beeps
+  -LED blinks and buzzer beeps 3 times when computer is armed and ready for launch
 
   RECOVERY MODE
   -Slow long Beeps
@@ -111,7 +105,7 @@ READ ME
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
   
 // *********SET FREQUENCY HERE IN HZ***************
-  #define hz (5)//hz
+  #define hz (10)//hz
 
 // *********SET GRAVITY CONSTANT HERE***************
   #define G (9.81)// m/(s^2)
@@ -228,22 +222,20 @@ void setup() {
   bmp.setOutputDataRate(BMP3_ODR_50_HZ);
 
 
-for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude to zero
-  read_barometer();//updates barometer data
-  delay(50);
+  for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude to zero
+    read_barometer();//updates barometer data
+    delay(50);
 
-  //calibrate readings for altitude measurements.
-  init_pressure = bmp.pressure/100; //used to call read altitude for ground level reference
-  init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
-  x_previous = bmp.readAltitude(init_pressure);
-}
+    //calibrate readings for altitude measurements.
+    init_pressure = bmp.pressure/100; //used to call read altitude for ground level reference
+    init_altitude = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+    x_previous = bmp.readAltitude(init_pressure);
+  }
 
+  delay(1000); //take altitude reading after one second
+  x_current = bmp.readAltitude(init_pressure);
   
   set_header_file(); //sets headers at beginning of file
-
-
-  delay(1000);
-  x_current = bmp.readAltitude(init_pressure);
 
   if (abs(x_current - x_previous) > 3 ){//enters if roket is moving greater than 3 m/s
     logFile.print(F("ABORTED, ROCKET MOVING"));
@@ -460,8 +452,7 @@ void set_header_file(){//sets headers at begining of file
   logFile.print(F("TAKEOFF_ALTITUDE:\t"));
   logFile.print(TAKEOFF_ALTITUDE); logFile.print(F(" [m]\t")); 
   logFile.print(F("TARGET_ALTITUDE:\t"));
-  logFile.println(TARGET_ALTITUDE); logFile.print(F(" [m]\t")); 
-  
+  logFile.print(TARGET_ALTITUDE); logFile.println(F(" [m]\t")); 
   logFile.print(F("Time:\tAlt:\tVel:\tAcceleration:\tTarget_Acceleration:\tBrake_Position:\tEvents:\t"));
 }
 
@@ -602,7 +593,7 @@ int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
   else{
     counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
   }
-  if(counter_apogee > 3){    //enters if last 3 positions are lower than recorded apogee
+  if(counter_apogee > 3){    //enters if last 3 positions are lower than the previous positions
     return 1;   //returns 1 for apogee detected
   }
   else{           
