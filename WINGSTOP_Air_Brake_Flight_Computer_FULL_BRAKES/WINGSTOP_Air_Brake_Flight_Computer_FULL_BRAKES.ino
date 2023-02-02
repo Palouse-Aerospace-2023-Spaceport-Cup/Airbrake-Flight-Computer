@@ -105,7 +105,7 @@ READ ME
 
   
 //**************SET TARGET ALTITUDE HERE*************************
-  #define TARGET_ALTITUDE (100) //target altitude above ground in meters
+  #define TARGET_ALTITUDE (0) //target altitude above ground in meters
 
 // *********SET SEA LEVEL PRESSURE HERE***************
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
@@ -117,7 +117,7 @@ READ ME
   #define G (9.81)// m/(s^2)
 
 // *********SET TAKEOFF ALTITUDE HERE***************
-  #define TAKEOFF_ALTITUDE  (30) //altitude above the ground in meters that triggers the detect_take_off function
+  #define TAKEOFF_ALTITUDE  (1) //altitude above the ground in meters that triggers the detect_take_off function
 
 // *********SET ACCELERATION OFFSET CONSTANT HERE***************
   #define OFFSET (-7)// offset for acceleration data in m/(s^2) for prediction algorithm
@@ -158,22 +158,14 @@ void setup() {
   //Servo setup************************************************
   
   brakes.attach(SERVO_PIN);  // attaches the servo on pin to the servo object
-
+  close_brakes();
+  
   /*
   //open & close brakes three times to identify issues
   open_brakes();
   delay(500);
   close_brakes();
-  delay(500);
-  open_brakes();
-  delay(500);
-  close_brakes();
-  delay(500);
-  open_brakes();
-  delay(500);
   */
-  
-  close_brakes();
   
   
   //SD Card Setup***********************************************
@@ -267,9 +259,6 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   }
 
   
-  
-  //print initial sea level altitude to file
-  logFile.print(init_altitude);
 
   //sets initial time, t_previous
   t_previous = millis();
@@ -280,6 +269,9 @@ for(int i = 0; i<10; i++){ //calibrates initial pressure and starting altitude t
   
   //COMPUTER IS NOW ARMED
 }
+
+
+
 
 
 
@@ -300,6 +292,13 @@ void loop() {
   log_data();//logs all data to sd card
 
 
+  if (logFile) {
+    logFile.print(F("Takeoff Detected")); //logs event
+    reopen_file();//saves and reopens file
+  }
+
+  
+
 //MOTOR BURNING MODE********************
   while(!detect_mco()){//runs until MCO is detected
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
@@ -317,7 +316,7 @@ void loop() {
 
 //ASCENDING MODE********************
   
-  while(! detect_apogee()){//Runs until apogee is detected.
+  while(!detect_apogee()){//Runs until apogee is detected.
     average_acceleration_data(); // updates acceleration value acc, and delta_t value
     read_velocity();//reads new altitude as x_current and compares to previous altitude x_previous and delta_t to determine velocity, then updates x_previous as x_current
   
@@ -425,7 +424,7 @@ float read_altitude(){//reads and returns barometer altitude reading
   do {
     read_barometer(); 
     altitudeReading = bmp.readAltitude(init_pressure);
-  } while (abs(altitudeReading - x_current) > 1200*(t_current - t_previous)); 
+  } while (abs(altitudeReading - x_current)/delta_t > 1200); 
   //keeps reading altimiter if vertical speed is more than 1200 m/s (should never actually be that fast).
   return altitudeReading; // returns current altitude reading
 }
@@ -461,7 +460,7 @@ void set_header_file(){//sets headers at begining of file
   logFile.print(F("TAKEOFF_ALTITUDE:\t"));
   logFile.print(TAKEOFF_ALTITUDE); logFile.print(F(" [m]\t")); 
   logFile.print(F("TARGET_ALTITUDE:\t"));
-  logFile.print(TARGET_ALTITUDE); logFile.print(F(" [m]\t")); 
+  logFile.println(TARGET_ALTITUDE); logFile.print(F(" [m]\t")); 
   
   logFile.print(F("Time:\tAlt:\tVel:\tAcceleration:\tTarget_Acceleration:\tBrake_Position:\tEvents:\t"));
 }
