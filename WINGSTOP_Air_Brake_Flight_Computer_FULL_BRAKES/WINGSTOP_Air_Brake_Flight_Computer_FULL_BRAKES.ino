@@ -92,8 +92,8 @@ READ ME
   unsigned long t_current = 0;  //current clock time in milliseconds
   
   //brakes servo RANGE and Velocity Limit
-  #define brakes_closed  625
-  #define brakes_open  1580
+  #define brakes_closed  1410 //for crimson arrow
+  #define brakes_open  850 //for crimson arrow
   #define max_brake_velocity 500 //must be under this velocity in [m/s] to deploy brakes
   
   //DEFINE PIN NUMBERS
@@ -105,7 +105,7 @@ READ ME
 
   
 //**************SET TARGET ALTITUDE HERE*************************
-  #define TARGET_ALTITUDE (1) //target altitude above ground in meters
+  #define TARGET_ALTITUDE (100000) //target altitude above ground in meters (100,000 m to not deploy brakes)
 
 // *********SET SEA LEVEL PRESSURE HERE***************
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
@@ -117,7 +117,7 @@ READ ME
   #define G (9.81)// m/(s^2)
 
 // *********SET TAKEOFF ALTITUDE HERE***************
-  #define TAKEOFF_ALTITUDE  (1) //altitude above the ground in meters that triggers the detect_take_off function
+  #define TAKEOFF_ALTITUDE  (30) //altitude above the ground in meters that triggers the detect_take_off function
 
 // *********SET ACCELERATION OFFSET CONSTANT HERE***************
   #define OFFSET (-7)// offset for acceleration data in m/(s^2) for prediction algorithm
@@ -158,14 +158,15 @@ void setup() {
   //Servo setup************************************************
   
   brakes.attach(SERVO_PIN);  // attaches the servo on pin to the servo object
-  close_brakes();
+  close_brakes(); //holds brakes closed until MCO
   
-  /*
+  
   //open & close brakes three times to identify issues
-  open_brakes();
-  delay(500);
-  close_brakes();
-  */
+  //delay(2000);
+  //open_brakes();
+  //delay(5000);
+  //close_brakes();
+  
   
   
   //SD Card Setup***********************************************
