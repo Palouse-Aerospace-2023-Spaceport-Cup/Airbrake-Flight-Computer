@@ -73,6 +73,7 @@ READ ME
   
   float x_previous = 0; // previous position
   float x_current = 0; //current position
+  float apogee = 0; //apogee variable
   float vel = 0; //velocity
   float acc = 0; //acceleration
   float acc_avg = 0; //acceleration variable for averaging data
@@ -105,7 +106,7 @@ READ ME
 
   
 //**************SET TARGET ALTITUDE HERE*************************
-  #define TARGET_ALTITUDE (100000) //target altitude above ground in meters (100,000 m to not deploy brakes)
+  #define TARGET_ALTITUDE (3048) //target altitude above ground in meters (3048m or 10,000ft)
 
 // *********SET SEA LEVEL PRESSURE HERE***************
   #define SEALEVELPRESSURE_HPA (1016.00)//set according to location and date
@@ -535,17 +536,10 @@ void predict_apogee(){//predicts apogee with current velocity, altitude, and acc
 
   if (vel < max_brake_velocity){//enters if velocity is under max brake velocity
     //P term equation:
-    P_gain = 16118 / sq(vel);
+    P_gain = 156250 / sq(vel); //derived in excel from mass and drag calculations
     
     //P controller algorithm:
-    brake_position = brake_position + P_gain * (acc - target_acc);
-
-    //don't let brake position satturate:
-    if(brake_position > 100){
-      brake_position = 100;
-    } else if(brake_position < 0){
-      brake_position = 0;
-    }
+    brake_position = constrain(brake_position + constrain(P_gain * (acc - target_acc),-5.0,5.0),0.0,100.0); //only lets adjustments of up to 5% and constrains the control value to (0,100)
   
     set_brakes();// updates brakes to brake position variable
   } 
@@ -597,13 +591,14 @@ int detect_mco(){//returns 1 if MCO is detected, 0 otherwise.
 
 
 int detect_apogee(){//looks for apogee and returns 1 if detected, 0 if not.
-  if(x_current > x_previous){//enters if current position is higher than saved apogee value
+  if(x_current > apogee){//enters if current position is higher than saved apogee value
     counter_apogee = 0;      //resets apogee counter
+    apogee = x_current; //saves new apogee value
   }
   else{
     counter_apogee++;        //increments apogee counter if latest value is less than recorded apogee
   }
-  if(counter_apogee > 3){    //enters if last 3 positions are lower than the previous positions
+  if(counter_apogee > 5){    //enters if last 5 positions are lower than the previous positions
     return 1;   //returns 1 for apogee detected
   }
   else{           
