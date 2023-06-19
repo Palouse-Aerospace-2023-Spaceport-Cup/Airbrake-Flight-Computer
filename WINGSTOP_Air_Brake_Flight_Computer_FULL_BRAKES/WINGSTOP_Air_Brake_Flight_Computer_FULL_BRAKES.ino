@@ -93,7 +93,7 @@ READ ME
   unsigned long t_current = 0;  //current clock time in milliseconds
   
   //brakes servo RANGE and Velocity Limit
-  #define brakes_closed  1410 //for crimson arrow
+  #define brakes_closed  1438 //for crimson arrow
   #define brakes_open  850 //for crimson arrow
   #define max_brake_velocity 500 //must be under this velocity in [m/s] to deploy brakes
   
